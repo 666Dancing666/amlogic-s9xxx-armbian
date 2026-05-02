@@ -388,11 +388,11 @@ jobs:
           # 如果缓存目录存在，先删除
           if [ -d "$KERNEL_CACHE_DIR" ]; then
             echo ">>> 检测到已有内核源码缓存，正在清理..."
-            rm -rf "$KERNEL_CACHE_DIR"
+            sudo rm -rf "$KERNEL_CACHE_DIR"
           fi
 
           # 克隆你的内核仓库
-          git clone --depth=1 --branch="$KERNEL_BRANCH" "$KERNEL_REPO" "$KERNEL_CACHE_DIR" || {
+          sudo git clone --depth=1 --branch="$KERNEL_BRANCH" "$KERNEL_REPO" "$KERNEL_CACHE_DIR" || {
             echo "!!! 错误：克隆内核源码失败。请检查仓库地址和分支名。"
             exit 1
           }
@@ -400,7 +400,7 @@ jobs:
           # 验证关键文件是否存在
           if [ -f "$KERNEL_CACHE_DIR/drivers/gpu/drm/meson/meson_dw_hdmi.c" ]; then
             echo ">>> 内核源码克隆成功！关键文件已就位。"
-            ls -la "$KERNEL_CACHE_DIR/drivers/gpu/drm/meson/meson_dw_hdmi.c"
+            sudo ls -la "$KERNEL_CACHE_DIR/drivers/gpu/drm/meson/meson_dw_hdmi.c"
           else
             echo "!!! 错误：未找到补丁目标文件，克隆可能不完整。"
             exit 1
