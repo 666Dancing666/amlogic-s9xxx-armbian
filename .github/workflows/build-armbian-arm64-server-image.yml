@@ -383,9 +383,10 @@ jobs:
           cd build/
               ./compile.sh RELEASE=${{ inputs.set_release }} BOARD=${config_board} BRANCH=current BUILD_MINIMAL=no \
                            BUILD_ONLY=default HOST=armbian BUILD_DESKTOP=no EXPERT=yes KERNEL_CONFIGURE=no \
-                           KERNELSOURCE='https://github.com/666Dancing666/linux-6.1.y.git' \
+                           KERNELSOURCE='https://github.com/666Dancing666/linux-6.1.y' \
+                           KERNELBRANCH='refs/heads/main' \
                            COMPRESS_OUTPUTIMAGE="sha" SHARE_LOG=yes
-
+                           
           echo "status=success" >> ${GITHUB_OUTPUT}
 
       - name: Organize output files and reclaim disk space
