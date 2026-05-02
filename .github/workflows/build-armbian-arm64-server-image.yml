@@ -366,7 +366,31 @@ jobs:
           ln -sf /builder/build ${{ github.workspace }}/build
           ln -sf /builder/build /home/runner/work/_actions/ophub/amlogic-s9xxx-armbian/main/build
           echo "status=success" >> ${GITHUB_OUTPUT}
+      - name: Inject HDMI patch into kernel source
+        working-directory: /builder
+        if: ${{ steps.down.outputs.status == 'success' && !cancelled() }}
+        run: |
+          echo ">>> 正在准备 HDMI 补丁..."
 
+          # 下载补丁文件
+          wget -q -O /tmp/hdmi.patch https://raw.githubusercontent.com/ChalesYu/extdrv4openwrt/master/aml-doc/S905X/chicken_2A/linux/0001-Newer-Meson-GX-HDMI-patch-for-linux.patch
+
+          # 等待内核源码下载完成（可能需要一些时间）
+          echo ">>> 等待内核源码下载..."
+          for i in {1..60}; do
+            if [ -f /armbian/cache/sources/linux-kernel-source/drivers/gpu/drm/meson/meson_dw_hdmi.c ]; then
+              echo ">>> 内核源码已就绪，开始注入补丁..."
+              cd /armbian/cache/sources/linux-kernel-source
+              patch -p1 < /tmp/hdmi.patch || echo ">>> 补丁可能已经应用过，跳过..."
+              echo ">>> 补丁注入完成！"
+              break
+            fi
+            sleep 10
+          done
+
+          if [ ! -f /armbian/cache/sources/linux-kernel-source/drivers/gpu/drm/meson/meson_dw_hdmi.c ]; then
+            echo "!!! 警告：未找到内核源码文件，补丁未注入。"
+          fi
       - name: Compile Armbian [ ${{ inputs.set_release }} ]
         id: compile
         working-directory: /builder
