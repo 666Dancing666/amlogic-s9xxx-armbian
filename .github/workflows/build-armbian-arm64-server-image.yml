@@ -379,25 +379,38 @@ jobs:
           config_board="${{ inputs.config_board }}"
           [[ -z "${config_board}" ]] && config_board="odroidn2"
 
-          # 3. 手动克隆你修改过的内核源码到本地
-          echo ">>> 正在克隆你修改过的内核源码..."
-          cd /builder
-          git clone --depth=1 --branch=main https://github.com/666Dancing666/linux-6.1.y.git kernel-src
-          if [ -d "kernel-src" ]; then
-            echo ">>> 内核源码克隆成功！"
-            ls -la kernel-src/drivers/gpu/drm/meson/meson_dw_hdmi.c
+          # 3. 手动克隆你修改过的内核源码到 Armbian 要求的目录
+          echo ">>> 正在克隆修改过的内核源码到 Armbian 缓存目录..."
+          KERNEL_CACHE_DIR="/armbian/cache/sources/linux-kernel-source"
+          KERNEL_BRANCH="main"
+          KERNEL_REPO="https://github.com/666Dancing666/linux-6.1.y.git"
+
+          # 如果缓存目录存在，先删除
+          if [ -d "$KERNEL_CACHE_DIR" ]; then
+            echo ">>> 检测到已有内核源码缓存，正在清理..."
+            rm -rf "$KERNEL_CACHE_DIR"
+          fi
+
+          # 克隆你的内核仓库
+          git clone --depth=1 --branch="$KERNEL_BRANCH" "$KERNEL_REPO" "$KERNEL_CACHE_DIR" || {
+            echo "!!! 错误：克隆内核源码失败。请检查仓库地址和分支名。"
+            exit 1
+          }
+
+          # 验证关键文件是否存在
+          if [ -f "$KERNEL_CACHE_DIR/drivers/gpu/drm/meson/meson_dw_hdmi.c" ]; then
+            echo ">>> 内核源码克隆成功！关键文件已就位。"
+            ls -la "$KERNEL_CACHE_DIR/drivers/gpu/drm/meson/meson_dw_hdmi.c"
           else
-            echo "!!! 克隆失败，请检查仓库地址和分支名。"
+            echo "!!! 错误：未找到补丁目标文件，克隆可能不完整。"
             exit 1
           fi
 
-          # 4. 开始编译，将 KERNELSOURCE 指向本地目录
+          # 4. 开始编译，不再需要 KERNELSOURCE 和 KERNELBRANCH 参数
           echo ">>> 开始编译 Armbian 镜像..."
-          mkdir -p /builder/build/userpatches/extensions
           cd build/
               ./compile.sh RELEASE=${{ inputs.set_release }} BOARD=${config_board} BRANCH=current BUILD_MINIMAL=no \
                            BUILD_ONLY=default HOST=armbian BUILD_DESKTOP=no EXPERT=yes KERNEL_CONFIGURE=no \
-                           KERNELSOURCE='/builder/kernel-src' \
                            COMPRESS_OUTPUTIMAGE="sha" SHARE_LOG=yes
 
           echo ">>> 编译流程结束。"
