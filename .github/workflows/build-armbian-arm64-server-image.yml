@@ -372,32 +372,34 @@ jobs:
         working-directory: /builder
         if: ${{ steps.down.outputs.status == 'success' && !cancelled() }}
         run: |
-          # Enable QEMU emulation for ARM cross-compilation
+          # 1. 开启QEMU模拟支持
           docker run --rm --privileged multiarch/qemu-user-static --reset -p yes 2>/dev/null || true
 
-          # Set the board name for the base Armbian image
+          # 2. 设置基础板名
           config_board="${{ inputs.config_board }}"
           [[ -z "${config_board}" ]] && config_board="odroidn2"
 
-          # Manually clone our modified kernel source
-          echo "Cloning modified kernel source..."
+          # 3. 手动克隆你修改过的内核源码到本地
+          echo ">>> 正在克隆你修改过的内核源码..."
           cd /builder
-          git clone --depth=1 --branch=main https://github.com/666Dancing666/linux-6.1.y.git linux-kernel-source || true
-          if [ -d "linux-kernel-source" ]; then
-            echo "Kernel source cloned successfully"
-            ls -la linux-kernel-source/drivers/gpu/drm/meson/meson_dw_hdmi.c
+          git clone --depth=1 --branch=main https://github.com/666Dancing666/linux-6.1.y.git kernel-src
+          if [ -d "kernel-src" ]; then
+            echo ">>> 内核源码克隆成功！"
+            ls -la kernel-src/drivers/gpu/drm/meson/meson_dw_hdmi.c
           else
-            echo "Clone failed, falling back to default kernel"
+            echo "!!! 克隆失败，请检查仓库地址和分支名。"
+            exit 1
           fi
 
-          # Compile options
+          # 4. 开始编译，将 KERNELSOURCE 指向本地目录
+          echo ">>> 开始编译 Armbian 镜像..."
           cd build/
               ./compile.sh RELEASE=${{ inputs.set_release }} BOARD=${config_board} BRANCH=current BUILD_MINIMAL=no \
                            BUILD_ONLY=default HOST=armbian BUILD_DESKTOP=no EXPERT=yes KERNEL_CONFIGURE=no \
-                           KERNELSOURCE='/builder/linux-kernel-source' \
-                           KERNELBRANCH='' \
+                           KERNELSOURCE='/builder/kernel-src' \
                            COMPRESS_OUTPUTIMAGE="sha" SHARE_LOG=yes
 
+          echo ">>> 编译流程结束。"
           echo "status=success" >> ${GITHUB_OUTPUT}
       - name: Organize output files and reclaim disk space
         id: clean
