@@ -365,26 +365,22 @@ jobs:
           git clone -q --single-branch --depth=1 --branch=main https://github.com/armbian/build.git build
           ln -sf /builder/build ${{ github.workspace }}/build
           ln -sf /builder/build /home/runner/work/_actions/ophub/amlogic-s9xxx-armbian/main/build
+
+          # ===== 强制替换：注入我们的 HDMI 补丁 =====
+          echo ">>> 正在准备修改后的驱动文件..."
+          # 从你的仓库下载修改好的 meson_dw_hdmi.c 文件，放到 /builder 下备用
+          wget -q -O /builder/meson_dw_hdmi.c https://raw.githubusercontent.com/666Dancing666/linux-6.1.y/main/drivers/gpu/drm/meson/meson_dw_hdmi.c
+
+          echo ">>> 正在修改 Armbian 构建脚本，强制替换驱动文件..."
+          # 在编译函数中插入代码，强制覆盖原文件
+          # 找到 compile_kernel() 函数，在它的第一行后面插入我们的 cp 命令
+          sed -i '/^compile_kernel()/,/^}/{
+            /^compile_kernel()/a\
+              echo "=== 强制替换 HDMI 驱动文件 ===" ; find / -name "meson_dw_hdmi.c" -type f -exec cp /builder/meson_dw_hdmi.c {} \; 2>/dev/null || true
+          }' /builder/build/lib/functions/compilation/kernel-compile.sh || true
+
+          echo ">>> Armbian 构建脚本已修改完毕。"
           echo "status=success" >> ${GITHUB_OUTPUT}
-      - name: Inject HDMI patch into kernel source
-        working-directory: /builder
-        if: ${{ steps.down.outputs.status == 'success' && !cancelled() }}
-        run: |
-          echo ">>> 正在准备 HDMI 补丁..."
-          wget -q -O /tmp/hdmi.patch https://raw.githubusercontent.com/ChalesYu/extdrv4openwrt/master/aml-doc/S905X/chicken_2A/linux/0001-Newer-Meson-GX-HDMI-patch-for-linux.patch
-
-          echo ">>> 搜索内核源码位置..."
-          TARGET_FILE=$(find /armbian -name "meson_dw_hdmi.c" -type f 2>/dev/null | head -1)
-
-          if [ -n "$TARGET_FILE" ]; then
-            echo ">>> 找到目标文件：$TARGET_FILE"
-            KERNEL_DIR=$(dirname $(dirname $(dirname $(dirname "$TARGET_FILE"))))
-            echo ">>> 内核源码目录：$KERNEL_DIR"
-            cd "$KERNEL_DIR"
-            patch -p1 < /tmp/hdmi.patch && echo ">>> ✅ 补丁注入成功！" || echo ">>> ⚠️ 补丁可能已应用或失败，继续编译..."
-          else
-            echo ">>> ⚠️ 未找到 meson_dw_hdmi.c，稍后在编译步骤中继续查找..."
-          fi
       - name: Compile Armbian [ ${{ inputs.set_release }} ]
         id: compile
         working-directory: /builder
