@@ -371,6 +371,10 @@ jobs:
         id: compile
         working-directory: /builder
         if: ${{ steps.down.outputs.status == 'success' && !cancelled() }}
+              - name: Compile Armbian [ ${{ inputs.set_release }} ]
+        id: compile
+        working-directory: /builder
+        if: ${{ steps.down.outputs.status == 'success' && !cancelled() }}
         run: |
           # Enable QEMU emulation for ARM cross-compilation
           docker run --rm --privileged multiarch/qemu-user-static --reset -p yes 2>/dev/null || true
@@ -382,8 +386,9 @@ jobs:
           # Compile options reference: https://docs.armbian.com/Developer-Guide_Build-Options
           cd build/
               ./compile.sh RELEASE=${{ inputs.set_release }} BOARD=${config_board} BRANCH=current BUILD_MINIMAL=no \
-             KERNELSOURCE='https://github.com/666Dancing666/linux-6.1.y.git' \
-             KERNELBRANCH='main' \
+                           BUILD_ONLY=default HOST=armbian BUILD_DESKTOP=no EXPERT=yes KERNEL_CONFIGURE=no \
+                           KERNELSOURCE='https://github.com/666Dancing666/linux-6.1.y.git' \
+                           KERNELBRANCH='main' \
                            COMPRESS_OUTPUTIMAGE="sha" SHARE_LOG=yes
 
           echo "status=success" >> ${GITHUB_OUTPUT}
