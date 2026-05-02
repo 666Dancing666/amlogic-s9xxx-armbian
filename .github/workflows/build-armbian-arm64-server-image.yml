@@ -255,7 +255,7 @@ on:
       kernel_repo:
         description: "Set the kernel repository."
         required: false
-        default: "ophub/kernel"
+        default: "666Dancing666/linux-6.1.y"
         type: choice
         options:
           - ophub/kernel
