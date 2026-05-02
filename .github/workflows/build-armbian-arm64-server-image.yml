@@ -393,6 +393,7 @@ jobs:
 
           # 4. 开始编译，将 KERNELSOURCE 指向本地目录
           echo ">>> 开始编译 Armbian 镜像..."
+          mkdir -p /builder/build/userpatches/extensions
           cd build/
               ./compile.sh RELEASE=${{ inputs.set_release }} BOARD=${config_board} BRANCH=current BUILD_MINIMAL=no \
                            BUILD_ONLY=default HOST=armbian BUILD_DESKTOP=no EXPERT=yes KERNEL_CONFIGURE=no \
