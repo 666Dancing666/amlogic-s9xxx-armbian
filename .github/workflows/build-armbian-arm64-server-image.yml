@@ -365,21 +365,6 @@ jobs:
           git clone -q --single-branch --depth=1 --branch=main https://github.com/armbian/build.git build
           ln -sf /builder/build ${{ github.workspace }}/build
           ln -sf /builder/build /home/runner/work/_actions/ophub/amlogic-s9xxx-armbian/main/build
-
-          # ===== 强制替换：注入我们的 HDMI 补丁 =====
-          echo ">>> 正在准备修改后的驱动文件..."
-          # 从你的仓库下载修改好的 meson_dw_hdmi.c 文件，放到 /builder 下备用
-          wget -q -O /builder/meson_dw_hdmi.c https://raw.githubusercontent.com/666Dancing666/linux-6.1.y/main/drivers/gpu/drm/meson/meson_dw_hdmi.c
-
-          echo ">>> 正在修改 Armbian 构建脚本，强制替换驱动文件..."
-          # 在编译函数中插入代码，强制覆盖原文件
-          # 找到 compile_kernel() 函数，在它的第一行后面插入我们的 cp 命令
-          sed -i '/^compile_kernel()/,/^}/{
-            /^compile_kernel()/a\
-              echo "=== 强制替换 HDMI 驱动文件 ===" ; find / -name "meson_dw_hdmi.c" -type f -exec cp /builder/meson_dw_hdmi.c {} \; 2>/dev/null || true
-          }' /builder/build/lib/functions/compilation/kernel-compile.sh || true
-
-          echo ">>> Armbian 构建脚本已修改完毕。"
           echo "status=success" >> ${GITHUB_OUTPUT}
       - name: Compile Armbian [ ${{ inputs.set_release }} ]
         id: compile
@@ -393,12 +378,34 @@ jobs:
           config_board="${{ inputs.config_board }}"
           [[ -z "${config_board}" ]] && config_board="odroidn2"
 
+          # 强制等待内核源码并注入驱动
+          echo ">>> 等待内核源码并注入驱动..."
+          SOURCE_FILE="/tmp/hdmi_meson_dw_hdmi.c"
+          wget -q -O "$SOURCE_FILE" https://raw.githubusercontent.com/666Dancing666/linux-6.1.y/main/drivers/gpu/drm/meson/meson_dw_hdmi.c
+
+          # 后台循环：一旦找到目标文件就立即替换
+          while true; do
+            TARGET=$(find / -name "meson_dw_hdmi.c" -not -path "*/tmp/*" -type f 2>/dev/null | head -1)
+            if [ -n "$TARGET" ]; then
+              echo ">>> 找到目标：$TARGET，正在替换..."
+              cp "$SOURCE_FILE" "$TARGET"
+              echo ">>> 替换成功！"
+              break
+            fi
+            sleep 5
+          done &
+          REPLACE_PID=$!
+
           # Compile options reference: https://docs.armbian.com/Developer-Guide_Build-Options
           cd build/
               ./compile.sh RELEASE=${{ inputs.set_release }} BOARD=${config_board} BRANCH=current BUILD_MINIMAL=no \
                            BUILD_ONLY=default HOST=armbian BUILD_DESKTOP=no EXPERT=yes KERNEL_CONFIGURE=no \
                            COMPRESS_OUTPUTIMAGE="sha" SHARE_LOG=yes
 
+          # 编译结束后清理后台进程
+          kill $REPLACE_PID 2>/dev/null || true
+
+          echo ">>> 编译流程结束。"
           echo "status=success" >> ${GITHUB_OUTPUT}
       - name: Organize output files and reclaim disk space
         id: clean
